@@ -15,7 +15,7 @@ import (
 var binaryPath string
 
 func TestMain(m *testing.M) {
-	bin, version, err := harness.CheckBinary()
+	bin, _, err := harness.CheckBinary()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
@@ -25,7 +25,6 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "cannot create KDBX_CLI_E2E_ROOT:", err)
 		os.Exit(2)
 	}
-	harness.WriteSummaryHeader("tests/basic", version)
 	os.Exit(m.Run())
 }
 

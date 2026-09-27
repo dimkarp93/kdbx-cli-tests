@@ -1,2 +1,4 @@
 .env
 _logs/
+/runner/kdbx-cli-src/*
+!/runner/kdbx-cli-src/.gitkeep

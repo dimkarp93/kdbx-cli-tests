@@ -14,13 +14,13 @@ Black-box integration tests for `kdbx-cli`. The tested version is `versions.txt`
 
 ## Structure
 
-- `compose.yaml` — services (postgres, mariadb, sshd, gitea, registry + registry-auth, mockgithub) and the `runner` (profile `runner`, run with `-T`, no TTY). `KDBX_CLI_VERSION` comes from the Makefile.
-- `runner/` — `golang:1.26-trixie` + client tools + `keepassxc-minimal` + installers pinned by `INSTALL_REF`; the entrypoint sets the `tester` sudo password and drops privileges.
-- `services/mockgithub` — a GitHub releases API mock (pretty JSON, asset `url` before `name`, 404 without the token, `/__requests`, `/__reset`, `/__echo`); `main_test.go` checks it against the installer's parsing.
-- `seed/` — `seed.sh` (host: Gitea admin user) → `runner-seed.sh` (token, private repo, release, `/seed/gitea.env`, `/seed/ready`).
-- `internal/harness` — `Sandbox` (per-test `HOME`, `MakeStore`, `WriteConfig`, `StoreTitles`, `Run*`/`Exec` with a 30 s timeout), `Transcript`/`Cast` (per-test protocols and asciinema recordings, secrets masked), `CheckBinary`, `WriteSummaryHeader`, the config schema and `keepassxc-cli` helpers.
-- `tests/basic` — the quick suite (no services), `tests/docker` — the full suite (`TestMain` waits for services and `/seed/ready`). Build tag `e2e`.
+- `compose.yaml` — the `postgres` and `sshd` services (only what demos and `tests/docker` need) and `runner` (profile `runner`, run with `-T`, no TTY). `KDBX_CLI_VERSION` comes from the justfile.
+- `runner/` — `golang:1.26-trixie` + client tools + `keepassxc-minimal` + `vhs`/`ttyd`/`ffmpeg`/`chromium` for demo recordings (`VHS_NO_SANDBOX=1`); the entrypoint sets the `tester` sudo password and drops privileges.
+- `demo/` — `setup.sh` builds a demo store from the `.env` secrets, `*.tape` — `vhs` scenarios (a real interactive terminal session, not an excerpt of a go-test protocol); rendered to `_logs/demo/*.gif` by `just test-demo`.
+- `services/` — PostgreSQL init (`postgres/init.sh`, the `app_stdin` role), sshd.
+- `internal/harness` — `Sandbox` (per-test `HOME`, `MakeStore`, `WriteConfig`, `StoreTitles`, `Run*`/`Exec` with a 30 s timeout), `Demo`/`Cast` (per-test protocols and asciinema recordings, secrets masked), `CheckBinary`, `WriteSummaryHeader`, the config schema and `keepassxc-cli` helpers.
+- `tests/basic` — the quick suite (no services, most scenarios), `tests/docker` — only what can't be checked without postgres/sshd (`TestMain` waits for those two). The two never overlap. Build tag `e2e`.
 
 ## Commands
 
-`make test [MASK=…] [TRANSCRIPT=1] [VERBOSE=1]`, `make test-basic`, `make up/shell/logs/down`, `make vet`, `make vendor`/`vendor-check` (`GOFLAGS=-mod=vendor`). Service secrets are generated into `.env` for each run; `_logs/` holds compose logs and transcripts.
+`[MASK=…] [LOCAL=1] [VERBOSE=1] just test` (basic+docker, no demo, guarantees it all works), `just test-basic`, `just test-docker` (only the service-dependent scenarios), `just test-demo` (separate: run the suite, then record the demo), `*-local` variants of all four (kdbx-cli from `../kdbx-cli`, not `versions.txt`), `just list-tests` (what's in basic/docker/demo, in 3 columns), `just list-demos`, `just demo <name>`, `just make-screens`, `just screen <name>`, `just up/shell/logs/down`, `just vet`, `just vendor`/`vendor-check` (`GOFLAGS=-mod=vendor`). Service secrets are generated into `.env` for each run; `_logs/` holds compose logs, protocols and demo recordings (`.gif`).

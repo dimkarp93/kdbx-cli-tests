@@ -6,60 +6,75 @@
 
 В `versions.txt` лежит версия `kdbx-cli` (`X.Y.Z`, тот же формат, что в kdbx-cli). При сборке образа раннера бинарь ставится из GitHub-релиза `v<версия>` через `github_install.sh` (SHA256 проверяется), а тесты не запустятся, если `kdbx-cli --version` сообщает другую версию. Чтобы проверить новый релиз, поменяйте `versions.txt`.
 
+`LOCAL=1` (или рецепты `*-local`) вместо этого собирает `kdbx-cli` из исходников в `../kdbx-cli` — соседнем чекауте рядом с этим репозиторием (`~/tools/kdbx-cli`, если следовать обычной раскладке). Версия при этом берётся из `../kdbx-cli/versions.txt`, а не из `versions.txt` этого репозитория. Если `../kdbx-cli` не найден, сборка сразу падает с понятной ошибкой.
+
 ## Требования
 
-Docker с compose v2, `make`, `openssl`. Go на хосте нужен только для `make vet` и `make vendor`.
+Docker с compose v2, `just`, `openssl`. Go на хосте нужен только для `just vet` и `just vendor`.
 
 ## Запуск
 
 ```sh
-make test                        # всё: сервисы + оба набора (~1 мин)
-make test MASK=TestAskSSH        # только тесты, чьё имя совпадает с регуляркой
-make test-basic                  # быстрый набор без сервисов (только контейнер раннера)
-make test TRANSCRIPT=1           # записать, что делал каждый тест (см. ниже)
-make test VERBOSE=1              # go test -v
-make up                          # поднять сервисы и засеять их (для отладки)
-make shell                       # шелл в контейнере раннера, с настоящим TTY
-make logs                        # логи сервисов
-make down                        # остановить и удалить всё
+just test                        # всё без записи демо: tests/basic + tests/docker (~1 мин), гарантирует, что всё работает
+MASK=TestAskSSH just test        # только тесты, чьё имя совпадает с регуляркой
+just test-basic                  # быстрый набор без сервисов (только контейнер раннера)
+just test-docker                 # только тесты с реальными сервисами (postgres, sshd)
+just test-demo                   # отдельный прогон: тесты + запись demo/*.tape (см. ниже)
+just test-local                  # то же, что just test, но kdbx-cli собирается из ../kdbx-cli
+just test-basic-local            # то же для test-basic
+just test-docker-local           # то же для test-docker
+just test-demo-local             # то же для test-demo
+VERBOSE=1 just test              # go test -v
+just list-tests                  # какие сценарии входят в test-basic/test-docker/test-demo, в 3 колонки
+just up                          # поднять сервисы (для отладки)
+just shell                       # шелл в контейнере раннера, с настоящим TTY
+just logs                        # логи сервисов
+just down                        # остановить и удалить всё
 ```
 
-`make test` завершается с кодом тестов. При падении логи сервисов сохраняются в `_logs/compose.log`. Упавший тест печатает код выхода, stdout и stderr команды.
+`test-basic`, `test-docker` и `test` (их объединение) не пересекаются по сценариям — каждый тест ровно в одной группе. `test` завершается с кодом тестов. При падении логи сервисов сохраняются в `_logs/compose.log`. Упавший тест печатает код выхода, stdout и stderr команды.
 
-## Запись: `TRANSCRIPT=1`
+## Демо: записи VHS
 
-Всё складывается в `_logs/transcripts/`:
+`just test-demo` (`DEMO=1 just test`) сначала прогоняет весь набор (как `test`), затем — только если тесты прошли — прогоняет через [`vhs`](https://github.com/charmbracelet/vhs) сценарии из `demo/*.tape` и складывает результат в `_logs/demo/*.gif`. Это не выдержки из тестов, а настоящая интерактивная сессия в терминале (ввод команды, реальный вывод `kdbx-cli` и вызываемой программы, промпт пароля), записанная в GIF независимо от go-тестов — свой сетап (`demo/setup.sh`), свои пароли, без проверок и без связи с тестовыми ассертами. Каждый `.tape` сначала показывает содержимое демо-хранилища (`keepassxc-cli ls`/`show -a Password`, чтобы был виден и заголовок, и значение секрета), затем сам сценарий целиком, и держит финальный кадр 15 секунд, чтобы результат успели прочитать.
 
-- `SUMMARY.txt` — тестируемая версия `kdbx-cli`, затем все тесты с PASS/FAIL, длительностью и файлом протокола;
-- `<Test>.log` — читаемый протокол: каждая команда с аргументами, добавленным окружением, stdin, stdout, stderr, кодом выхода и временем, плюс заметки теста (запросы, пришедшие в мок GitHub, что проверили сканеры утечек) и итог;
-- `<Test>.cast` — запись терминала для PTY-сценариев (промпт пароля, `psql`, `ssh`) в формате asciinema: `asciinema play -s 0.2 _logs/transcripts/TestTTY1_MasterPasswordFromTerminal.cast`, либо в GIF через `agg`. Нажатия клавиш при воспроизведении не видны (пароль вводится без эха), их список есть в `.log`.
+```sh
+just test-demo             # прогнать тесты и записать все demo/*.tape в _logs/demo/*.gif
+just list-demos            # какие алиасы доступны, что каждый проверяет, отрендерены ли уже
+just demo master-password  # открыть готовый GIF (xdg-open/open)
+just make-screens          # сделать .png из последнего кадра каждого demo/*.gif
+just screen master-password # открыть такой .png (xdg-open/open)
+```
 
-Секреты везде замаскированы: запись из хранилища выглядит как `<secret:Title>`, мастер-пароль — `<master-password>`, пароли сервисов — именем своей переменной. Поэтому `<secret:REG_TOKEN>|<secret:REG_TOKEN>` в stdout означает, что дочерний процесс действительно дважды получил этот секрет. Файлами можно делиться; CI прикладывает их к каждому прогону как artifact `e2e-logs`.
+Сегодня заведены:
+
+| Имя | Что показывает |
+|---|---|
+| `master-password` | интерактивный ввод верного мастер-пароля в терминале |
+| `wrong-password` | ввод неверного мастер-пароля и отказ |
+| `ctrl-c` | Ctrl+D игнорируется на промпте пароля, Ctrl+C прерывает |
+| `askpass-ssh` | `--askpass` подставляет пароль в `ssh` без промпта на терминале |
+| `psql-terminal` | `psql` игнорирует секрет из `--stdin`, спрашивает пароль в терминале — и подключается, когда его ввели вручную |
+| `gpg-decrypt` | `--secret-file` пишет секрет во временный файл и передаёт его путь в `gpg --passphrase-file` |
+
+Добавить новый: положить `demo/<name>.tape` рядом (см. `vhs new` для синтаксиса) — `just test-demo` подхватит его автоматически.
 
 ## Что покрыто
 
+`tests/docker` (полный набор с реальными сервисами) сведён к сценариям, которые нельзя проверить без сети/докера **и** которые уже показаны в демо (см. выше) или проверяют собственный инвариант kdbx-cli, а не «ещё один инструмент» на уже доказанном канале. Всё остальное — в `tests/basic`, включая большинство инструментов из README, но без внешних сервисов (только контейнер раннера).
+
 | Набор | Сценарии |
 |---|---|
-| `tests/basic` | env, слияние секций, флаги, dry-run, `check`/`config`, все каналы на `sh -c`, коды выхода, неверный пароль |
-| env | `psql` + `PGPASSWORD`, `github_install.sh` против мока GitHub API, `gitea_install.sh` против Gitea, выбор секции, dry-run без сети |
-| stdin | `psql -W` без TTY, `--stdin-keep-open`, `skopeo login --password-stdin`, `keepassxc-cli db-create`, `sudo -S` |
-| files | `restic --password-file`, `gpg --passphrase-file`, `mariadb --defaults-extra-file`, `PGPASSFILE`, ключ ssh через `ssh-add`, `ssh -i` (фиксирует, что ssh закрывает дескриптор) |
-| askpass | пароль ssh и passphrase ключа, `git clone` по HTTP, `sudo -A`, `RESTIC_PASSWORD_COMMAND` |
-| PTY | промпт мастер-пароля (ввод, неверный пароль, Ctrl+D/Ctrl+C), `psql` предпочитает терминал, `SSH_ASKPASS_REQUIRE=force` |
-| безопасность | секрета нет в argv ни одного процесса и на диске (для всех каналов), каталог askpass — `0700` и удаляется, секрет есть в environ дочернего процесса, но не kdbx-cli |
-| негативные | многострочный секрет в stdin, нет плейсхолдера, нет записи, проброс кода выхода программы, неверный токен GitHub |
-
-## Известные падения на 0.9.1
-
-`TestFileMySQL1_MultilineOptionFile`, `TestFilePG1_PGPassFile` и `TestFileSSH2_PrivateKeyThroughSSHAdd` падают на 0.9.1: файл в памяти создаётся с правами `0777`, и `mariadb`, libpq и `ssh-add` его отвергают. Исправление (права `0600`) уже есть в kdbx-cli, но ещё не выпущено; тесты станут зелёными, когда `versions.txt` будет указывать на релиз с ним.
+| `tests/basic` | env/stdin/files/askpass на `sh -c`, dry-run, `check`/`config`, коды выхода, неверный пароль, выбор секции по basename; PTY (промпт мастер-пароля: ввод, неверный пароль, Ctrl+D/Ctrl+C); `restic --password-file`/`--password-command`, `gpg --passphrase-file`, `sudo -A`/`-S`, `keepassxc-cli db-create`; негативные (многострочный секрет в stdin, нет плейсхолдера); безопасность (секрета нет в argv/на диске ни для одного канала, каталог askpass `0700` и удаляется, секрет есть в environ дочернего процесса, но не kdbx-cli) |
+| `tests/docker` | ssh закрывает дескриптор файла-секрета (`ssh -i`) и принимает ключ через `ssh-add`; `psql` игнорирует `--stdin`-секрет и спрашивает пароль в терминале (демо `psql-terminal`); `ssh` через `--askpass` под реальным TTY (демо `askpass-ssh`) — только postgres и sshd, больше никаких сервисов |
 
 ## Структура
 
-- `compose.yaml` — PostgreSQL, MariaDB, sshd, Gitea, registry, мок GitHub API и контейнер `runner`;
-- `runner/` — образ раннера: клиентские программы, `keepassxc-cli`, установщики `dimkarp93/install`, `kdbx-cli` из релиза;
-- `services/` — мок GitHub (`mockgithub`, только stdlib), sshd, инициализация PostgreSQL;
-- `seed/` — наполнение Gitea (пользователь, токен, приватный репозиторий, релиз);
-- `internal/harness/` — песочницы, схема конфига, работа с `keepassxc-cli`, протоколы;
+- `compose.yaml` — PostgreSQL, sshd и контейнер `runner`;
+- `runner/` — образ раннера: клиентские программы, `keepassxc-cli`, `vhs`/`ttyd`/`ffmpeg`/`chromium` для демо, `kdbx-cli` из релиза (или собранный локально, см. `LOCAL=1`);
+- `services/` — инициализация PostgreSQL, sshd;
+- `internal/harness/` — песочницы, схема конфига, работа с `keepassxc-cli`;
+- `demo/` — сценарии `vhs` (см. «Демо: записи VHS» выше);
 - `tests/basic/`, `tests/docker/` — тесты (build-тег `e2e`).
 
 На GitHub набор гоняется в `.github/workflows/e2e.yml` (на push, ежедневно и вручную).

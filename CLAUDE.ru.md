@@ -14,13 +14,13 @@
 
 ## Структура
 
-- `compose.yaml` — сервисы (postgres, mariadb, sshd, gitea, registry + registry-auth, mockgithub) и `runner` (профиль `runner`, запуск с `-T`, без TTY). `KDBX_CLI_VERSION` приходит из Makefile.
-- `runner/` — `golang:1.26-trixie` + клиентские программы + `keepassxc-minimal` + установщики, закреплённые `INSTALL_REF`; entrypoint задаёт sudo-пароль `tester` и понижает привилегии.
-- `services/mockgithub` — мок GitHub releases API (pretty JSON, `url` ассета раньше `name`, 404 без токена, `/__requests`, `/__reset`, `/__echo`); `main_test.go` сверяет его с разбором в установщике.
-- `seed/` — `seed.sh` (хост: админ Gitea) → `runner-seed.sh` (токен, приватный репозиторий, релиз, `/seed/gitea.env`, `/seed/ready`).
-- `internal/harness` — `Sandbox` (свой `HOME` на тест, `MakeStore`, `WriteConfig`, `StoreTitles`, `Run*`/`Exec` с таймаутом 30 с), `Transcript`/`Cast` (протоколы и asciinema-записи по тестам, секреты замаскированы), `CheckBinary`, `WriteSummaryHeader`, схема конфига и работа с `keepassxc-cli`.
-- `tests/basic` — быстрый набор (без сервисов), `tests/docker` — полный набор (`TestMain` ждёт сервисы и `/seed/ready`). Build-тег `e2e`.
+- `compose.yaml` — сервисы `postgres` и `sshd` (только то, что нужно демо и `tests/docker`) и `runner` (профиль `runner`, запуск с `-T`, без TTY). `KDBX_CLI_VERSION` приходит из justfile.
+- `runner/` — `golang:1.26-trixie` + клиентские программы + `keepassxc-minimal` + `vhs`/`ttyd`/`ffmpeg`/`chromium` для демо-записей (`VHS_NO_SANDBOX=1`); entrypoint задаёт sudo-пароль `tester` и понижает привилегии.
+- `demo/` — `setup.sh` поднимает демо-хранилище из секретов `.env`, `*.tape` — сценарии `vhs` (реальная интерактивная сессия в терминале, не выдержка из go-test-протокола); рендерятся в `_logs/demo/*.gif` через `just test-demo`.
+- `services/` — инициализация PostgreSQL (`postgres/init.sh`, роль `app_stdin`), sshd.
+- `internal/harness` — `Sandbox` (свой `HOME` на тест, `MakeStore`, `WriteConfig`, `StoreTitles`, `Run*`/`Exec` с таймаутом 30 с), `Demo`/`Cast` (протоколы и asciinema-записи по тестам, секреты замаскированы), `CheckBinary`, `WriteSummaryHeader`, схема конфига и работа с `keepassxc-cli`.
+- `tests/basic` — быстрый набор (без сервисов, большинство сценариев), `tests/docker` — только то, что нельзя проверить без postgres/sshd (`TestMain` ждёт эти два сервиса). Не пересекаются. Build-тег `e2e`.
 
 ## Команды
 
-`make test [MASK=…] [TRANSCRIPT=1] [VERBOSE=1]`, `make test-basic`, `make up/shell/logs/down`, `make vet`, `make vendor`/`vendor-check` (`GOFLAGS=-mod=vendor`). Секреты сервисов генерируются в `.env` на каждый прогон; в `_logs/` — логи compose и протоколы.
+`[MASK=…] [LOCAL=1] [VERBOSE=1] just test` (basic+docker, без демо, гарантирует работоспособность), `just test-basic`, `just test-docker` (только сервис-зависимые сценарии), `just test-demo` (отдельно: прогон + запись demo), `*-local` варианты всех четырёх (kdbx-cli из `../kdbx-cli`, не из `versions.txt`), `just list-tests` (что входит в basic/docker/demo, в 3 колонки), `just list-demos`, `just demo <name>`, `just make-screens`, `just screen <name>`, `just up/shell/logs/down`, `just vet`, `just vendor`/`vendor-check` (`GOFLAGS=-mod=vendor`). Секреты сервисов генерируются в `.env` на каждый прогон; в `_logs/` — логи compose, протоколы и demo-записи (`.gif`).

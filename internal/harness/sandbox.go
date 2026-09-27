@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -20,13 +19,12 @@ const TestPassword = "test-pass-123"
 const CommandTimeout = 30 * time.Second
 
 type Sandbox struct {
-	T          *testing.T
-	Dir        string
-	Home       string
-	Bin        string
-	Password   string
-	Env        []string
-	Transcript *Transcript
+	T        *testing.T
+	Dir      string
+	Home     string
+	Bin      string
+	Password string
+	Env      []string
 }
 
 type Result struct {
@@ -51,8 +49,7 @@ func NewSandbox(t *testing.T, bin string) *Sandbox {
 	if err := os.MkdirAll(filepath.Join(home, ".config", "kdbx-cli"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	sb := &Sandbox{T: t, Dir: dir, Home: home, Bin: bin, Password: TestPassword, Transcript: OpenTranscript(t)}
-	sb.Transcript.AddSecret(sb.Password, "master-password")
+	sb := &Sandbox{T: t, Dir: dir, Home: home, Bin: bin, Password: TestPassword}
 	if !keep {
 		t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	}
@@ -103,13 +100,6 @@ func (s *Sandbox) MakeStore(rel string, entries map[string]string) string {
 		s.T.Fatal(err)
 	}
 	defer os.Remove(xmlPath)
-	titles := make([]string, 0, len(entries))
-	for title, value := range entries {
-		s.Transcript.AddSecret(value, "secret:"+title)
-		titles = append(titles, title)
-	}
-	sort.Strings(titles)
-	s.Transcript.Notef("created %s with entries %s", dbPath, strings.Join(titles, ", "))
 	out, err := KeepassRun(s.Password+"\n"+s.Password+"\n", "import", "-q", "-p", xmlPath, dbPath)
 	if err != nil {
 		s.T.Fatalf("keepassxc-cli import failed: %v\n%s", err, out)
@@ -161,11 +151,8 @@ func (s *Sandbox) Exec(env []string, stdin string, name string, args ...string) 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	start := time.Now()
 	err := cmd.Run()
-	elapsed := time.Since(start)
 	if ctx.Err() != nil {
-		s.Transcript.Command(s.displayArgv(name, args), env, stdin, Result{Stdout: stdout.String(), Stderr: stderr.String(), ExitCode: -1}, elapsed, " TIMED OUT")
 		s.T.Fatalf("%s %v timed out after %s\nstdout:\n%s\nstderr:\n%s", name, args, CommandTimeout, stdout.String(), stderr.String())
 	}
 	code := 0
@@ -176,16 +163,7 @@ func (s *Sandbox) Exec(env []string, stdin string, name string, args ...string) 
 		}
 		code = ee.ExitCode()
 	}
-	r := Result{Stdout: stdout.String(), Stderr: stderr.String(), ExitCode: code}
-	s.Transcript.Command(s.displayArgv(name, args), env, stdin, r, elapsed, "")
-	return r
-}
-
-func (s *Sandbox) displayArgv(name string, args []string) []string {
-	if name == s.Bin {
-		name = "kdbx-cli"
-	}
-	return append([]string{name}, args...)
+	return Result{Stdout: stdout.String(), Stderr: stderr.String(), ExitCode: code}
 }
 
 func (s *Sandbox) RunEnv(extraEnv []string, stdin string, args ...string) Result {

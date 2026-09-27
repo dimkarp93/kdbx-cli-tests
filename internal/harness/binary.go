@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
@@ -30,20 +29,4 @@ func CheckBinary() (string, string, error) {
 		return "", "", fmt.Errorf("keepassxc-cli is required")
 	}
 	return bin, version, nil
-}
-
-func WriteSummaryHeader(suite, version string) {
-	dir := os.Getenv(TranscriptDirEnv)
-	if dir == "" {
-		return
-	}
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return
-	}
-	f, err := os.OpenFile(filepath.Join(dir, "SUMMARY.txt"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	fmt.Fprintf(f, "=== %s: kdbx-cli %s\n", suite, version)
 }

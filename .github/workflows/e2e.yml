@@ -17,10 +17,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Run the suite against the version in versions.txt
-        run: make test TRANSCRIPT=1
+      - uses: extractions/setup-just@v3
 
-      - name: Upload transcripts and logs
+      - name: Run the suite against the version in versions.txt
+        run: just test
+        env:
+          DEMO: 1
+
+      - name: Upload demo and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:

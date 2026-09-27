@@ -1,6 +1,6 @@
 //go:build e2e
 
-package docker
+package basic
 
 import (
 	"bytes"
@@ -93,7 +93,7 @@ func filesContaining(needle string, roots ...string) []string {
 func TestSecArgvAndDisk_AllChannels(t *testing.T) {
 	for _, ch := range channels {
 		t.Run(ch.name, func(t *testing.T) {
-			sb := newSandbox(t)
+			sb := newRuntimeSandbox(t)
 			value := randomSecret(t)
 			store := sb.MakeStore("store.kdbx", map[string]string{"sec": value})
 			ready := filepath.Join(sb.Dir, "ready")
@@ -130,16 +130,12 @@ func TestSecArgvAndDisk_AllChannels(t *testing.T) {
 				time.Sleep(20 * time.Millisecond)
 			}
 
-			sb.Transcript.Notef("kdbx-cli started asynchronously (channel %s); the child signalled it has read the secret", ch.name)
 			if hits := procCmdlinesContaining(value); len(hits) > 0 {
 				t.Errorf("secret found in argv:\n%s", strings.Join(hits, "\n"))
 			}
-			procs, _ := filepath.Glob("/proc/[0-9]*")
-			sb.Transcript.Notef("scanned /proc/*/cmdline of %d processes while the child was running", len(procs))
 			if hits := filesContaining(value, sb.Home, "/tmp", "/var/tmp", sb.runtimeDir); len(hits) > 0 {
 				t.Errorf("secret found on disk while running: %v", hits)
 			}
-			sb.Transcript.Notef("scanned file contents under %s, /tmp, /var/tmp, %s while running", sb.Home, sb.runtimeDir)
 
 			os.WriteFile(release, nil, 0600)
 			select {
@@ -154,7 +150,6 @@ func TestSecArgvAndDisk_AllChannels(t *testing.T) {
 			if hits := filesContaining(value, sb.Home, "/tmp", "/var/tmp", sb.runtimeDir); len(hits) > 0 {
 				t.Errorf("secret left on disk after exit: %v", hits)
 			}
-			sb.Transcript.Notef("kdbx-cli exited (stderr: %q); rescanned the same directories after exit", stderr.String())
 		})
 	}
 }
@@ -162,7 +157,7 @@ func TestSecArgvAndDisk_AllChannels(t *testing.T) {
 func TestSecAskpass1_PrivateDirRemoved(t *testing.T) {
 	for _, exit := range []int{0, 3} {
 		t.Run(map[int]string{0: "success", 3: "failure"}[exit], func(t *testing.T) {
-			sb := newSandbox(t)
+			sb := newRuntimeSandbox(t)
 			store := sb.MakeStore("store.kdbx", map[string]string{"pw": randomSecret(t)})
 
 			script := `for d in "$XDG_RUNTIME_DIR"/kdbx-cli-*; do stat -c %a "$d"; done; exit ` + map[int]string{0: "0", 3: "3"}[exit]
@@ -174,7 +169,6 @@ func TestSecAskpass1_PrivateDirRemoved(t *testing.T) {
 				t.Errorf("askpass dir mode while running: got %q, want 700", got)
 			}
 			left, _ := filepath.Glob(filepath.Join(sb.runtimeDir, "kdbx-cli-*"))
-			sb.Transcript.Notef("askpass directories left in %s after exit: %d", sb.runtimeDir, len(left))
 			if len(left) > 0 {
 				t.Errorf("askpass dir left behind: %v", left)
 			}
@@ -196,7 +190,7 @@ func TestSecEnv1_SecretOnlyInChildEnviron(t *testing.T) {
 }
 
 func TestSecScannersDetectPlantedLeaks(t *testing.T) {
-	sb := newSandbox(t)
+	sb := newRuntimeSandbox(t)
 	value := randomSecret(t)
 
 	planted := filepath.Join(sb.runtimeDir, "leak")

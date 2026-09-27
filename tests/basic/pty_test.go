@@ -1,6 +1,6 @@
 //go:build e2e
 
-package docker
+package basic
 
 import (
 	"bytes"
@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/creack/pty"
+	"github.com/dimkarp93/kdbx-cli-tests/internal/harness"
+	"golang.org/x/sys/unix"
 )
 
 type ptySession struct {
@@ -27,17 +29,17 @@ type ptySession struct {
 	exitCode   int
 }
 
-func (s *sandbox) startPTY(env []string, name string, args ...string) *ptySession {
-	s.T.Helper()
+func startPTY(sb *harness.Sandbox, env []string, name string, args ...string) *ptySession {
+	sb.T.Helper()
 	cmd := exec.Command(name, args...)
-	cmd.Dir = s.Dir
+	cmd.Dir = sb.Dir
 	cmd.Env = env
 	const rows, cols = 40, 200
 	tty, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: rows, Cols: cols})
 	if err != nil {
-		s.T.Fatal(err)
+		sb.T.Fatal(err)
 	}
-	p := &ptySession{t: s.T, cmd: cmd, tty: tty, exited: make(chan struct{}), readerDone: make(chan struct{})}
+	p := &ptySession{t: sb.T, cmd: cmd, tty: tty, exited: make(chan struct{}), readerDone: make(chan struct{})}
 	go func() {
 		defer close(p.readerDone)
 		chunk := make([]byte, 4096)
@@ -67,7 +69,7 @@ func (s *sandbox) startPTY(env []string, name string, args ...string) *ptySessio
 		}
 		close(p.exited)
 	}()
-	s.T.Cleanup(p.kill)
+	sb.T.Cleanup(p.kill)
 	return p
 }
 
@@ -140,39 +142,68 @@ func (p *ptySession) kill() {
 
 const ptyTimeout = 30 * time.Second
 
-func TestStdinPG3_PsqlPrefersTerminalOverStdin(t *testing.T) {
-	requireTool(t, "psql")
-	sb := newSandbox(t)
-	store := sb.MakeStore("store.kdbx", map[string]string{"pg-stdin": secret(t, "E2E_PG_STDIN_PW")})
-
-	env := append(sb.BaseEnv(), "KDBX_CLI_PASSWORD="+sb.Password)
-	p := sb.startPTY(env, binaryPath, "--key-store", store, "--stdin=pg-stdin",
-		"--", "psql", "-h", "postgres", "-U", "app_stdin", "-d", "postgres", "-W", "-Atc", "select 'connected'")
-	p.expect("Password:", ptyTimeout)
-	if _, done := p.wait(2 * time.Second); done {
-		t.Fatalf("psql did not wait for the terminal; output:\n%s", p.output())
-	}
-	if strings.Contains(p.output(), "connected") {
-		t.Errorf("psql used the stdin password despite having a terminal; output:\n%s", p.output())
-	}
+func markerStore(sb *harness.Sandbox) string {
+	sb.T.Helper()
+	return sb.MakeStore("store.kdbx", map[string]string{"MARK": "marker-value"})
 }
 
-func TestAskSSH3_AskpassForcedUnderTerminal(t *testing.T) {
-	requireTool(t, "ssh")
+func TestTTY1_MasterPasswordFromTerminal(t *testing.T) {
 	sb := newSandbox(t)
-	store := sb.MakeStore("store.kdbx", map[string]string{"ssh-pw": secret(t, "E2E_SSH_PW")})
+	store := markerStore(sb)
 
-	env := append(sb.BaseEnv(), "KDBX_CLI_PASSWORD="+sb.Password)
-	p := sb.startPTY(env, binaryPath, append([]string{"--key-store", store, "--askpass=ssh-pw", "--"}, sshPasswordArgs()...)...)
+	p := startPTY(sb, sb.BaseEnv(), binaryPath, "--key-store", store, "--secrets=MARK:MARK", "--", "sh", "-c", `echo "ran:$MARK"`)
+	p.expect("Enter password for", ptyTimeout)
+	p.send(sb.Password + "\r")
 	code := p.mustExit(ptyTimeout)
 	out := p.output()
 	if code != 0 {
 		t.Fatalf("exit %d; output:\n%s", code, out)
 	}
-	if !strings.Contains(out, "ok") {
-		t.Errorf("remote command output missing; output:\n%s", out)
+	if !strings.Contains(out, "ran:marker-value") {
+		t.Errorf("child did not run with the secret; output:\n%s", out)
 	}
-	if strings.Contains(strings.ToLower(out), "password:") {
-		t.Errorf("ssh prompted on the terminal instead of using askpass; output:\n%s", out)
+	if strings.Contains(out, sb.Password) {
+		t.Errorf("the master password was echoed to the terminal; output:\n%s", out)
 	}
+}
+
+func TestTTY2_WrongMasterPassword(t *testing.T) {
+	sb := newSandbox(t)
+	store := markerStore(sb)
+
+	p := startPTY(sb, sb.BaseEnv(), binaryPath, "--key-store", store, "--secrets=MARK:MARK", "--", "sh", "-c", `echo "ran:$MARK"`)
+	p.expect("Enter password for", ptyTimeout)
+	p.send("definitely-wrong\r")
+	code := p.mustExit(ptyTimeout)
+	if code == 0 {
+		t.Errorf("expected a non-zero exit; output:\n%s", p.output())
+	}
+	if strings.Contains(p.output(), "ran:") {
+		t.Errorf("child ran with a wrong password; output:\n%s", p.output())
+	}
+}
+
+func TestTTY3_CtrlDIgnoredCtrlCAborts(t *testing.T) {
+	sb := newSandbox(t)
+	store := markerStore(sb)
+
+	p := startPTY(sb, sb.BaseEnv(), binaryPath, "--key-store", store, "--secrets=MARK:MARK", "--", "sh", "-c", `echo "ran:$MARK"`)
+	p.expect("Enter password for", ptyTimeout)
+	p.send("\x04")
+	if _, done := p.wait(time.Second); done {
+		t.Fatalf("Ctrl+D is expected to be ignored by x/term.ReadPassword, but kdbx-cli exited; output:\n%s", p.output())
+	}
+	p.send("\x03")
+	code := p.mustExit(ptyTimeout)
+	if code == 0 {
+		t.Errorf("expected a non-zero exit after Ctrl+C; output:\n%s", p.output())
+	}
+	if strings.Contains(p.output(), "ran:") {
+		t.Errorf("child ran after Ctrl+C; output:\n%s", p.output())
+	}
+	termios, err := unix.IoctlGetTermios(int(p.tty.Fd()), unix.TCGETS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("terminal echo after Ctrl+C: %v", termios.Lflag&unix.ECHO != 0)
 }

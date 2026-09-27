@@ -5,7 +5,6 @@ networks:
 
 volumes:
   seed: {}
-  registry-auth: {}
 
 services:
   postgres:
@@ -15,79 +14,11 @@ services:
       POSTGRES_PASSWORD: ${E2E_PG_ADMIN_PW:?}
       POSTGRES_HOST_AUTH_METHOD: scram-sha-256
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
-      E2E_PG_ENV_PW: ${E2E_PG_ENV_PW:?}
       E2E_PG_STDIN_PW: ${E2E_PG_STDIN_PW:?}
-      E2E_PG_FILE_PW: ${E2E_PG_FILE_PW:?}
     volumes:
       - ./services/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
-      interval: 2s
-      timeout: 3s
-      retries: 60
-
-  mockgithub:
-    build:
-      context: .
-      dockerfile: services/mockgithub/Dockerfile
-    networks: [e2e]
-    environment:
-      E2E_GH_TOKEN: ${E2E_GH_TOKEN:?}
-      MOCK_BASE_URL: http://mockgithub:8080
-
-  gitea:
-    image: gitea/gitea:1.24.7
-    networks: [e2e]
-    environment:
-      GITEA__database__DB_TYPE: sqlite3
-      GITEA__security__INSTALL_LOCK: "true"
-      GITEA__server__DOMAIN: gitea
-      GITEA__server__ROOT_URL: http://gitea:3000/
-      GITEA__server__DISABLE_SSH: "true"
-      GITEA__service__DISABLE_REGISTRATION: "true"
-      GITEA__log__LEVEL: warn
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/healthz"]
-      interval: 2s
-      timeout: 3s
-      retries: 90
-
-  registry-auth:
-    image: httpd:2.4.65-alpine
-    networks: [e2e]
-    environment:
-      E2E_REG_PW: ${E2E_REG_PW:?}
-    entrypoint: ["sh", "-c", "htpasswd -Bbn alice \"$$E2E_REG_PW\" > /auth/htpasswd"]
-    volumes:
-      - registry-auth:/auth
-
-  registry:
-    image: registry:2.8.3
-    networks: [e2e]
-    environment:
-      REGISTRY_AUTH: htpasswd
-      REGISTRY_AUTH_HTPASSWD_REALM: e2e
-      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
-    volumes:
-      - registry-auth:/auth:ro
-    depends_on:
-      registry-auth:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5000/"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
-
-  mariadb:
-    image: mariadb:11.8
-    networks: [e2e]
-    environment:
-      MARIADB_ROOT_PASSWORD: ${E2E_MYSQL_ROOT_PW:?}
-      MARIADB_USER: app_file
-      MARIADB_PASSWORD: ${E2E_MYSQL_PW:?}
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 2s
       timeout: 3s
       retries: 60
@@ -108,6 +39,8 @@ services:
       dockerfile: runner/Dockerfile
       args:
         KDBX_CLI_VERSION: ${KDBX_CLI_VERSION:?}
+        KDBX_CLI_LOCAL: ${KDBX_CLI_LOCAL:-0}
+      network: host
     networks: [e2e]
     env_file: .env
     environment:
@@ -116,14 +49,6 @@ services:
       - seed:/seed
     depends_on:
       postgres:
-        condition: service_healthy
-      mockgithub:
-        condition: service_healthy
-      gitea:
-        condition: service_healthy
-      registry:
-        condition: service_healthy
-      mariadb:
         condition: service_healthy
       sshd:
         condition: service_healthy
