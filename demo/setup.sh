@@ -5,10 +5,16 @@ store="/tmp/demo-store.kdbx"
 password="demo-pass-123"
 pg_demo_password="demo-pg-pass-123"
 gpg_passphrase="demo-gpg-pass-123"
+admin_password="demo-admin-pass-123"
 gnupg_home="/tmp/demo-gnupg"
 secret_plain="/tmp/demo-secret.txt"
 secret_enc="${secret_plain}.gpg"
+settings_template="/tmp/demo-settings.json.tmpl"
 rm -f "$store"
+
+cat > "$settings_template" <<EOF
+{ "user": "Bob", "password": "{{admin-pw}}" }
+EOF
 
 PGPASSWORD="$E2E_PG_ADMIN_PW" psql -h postgres -U postgres -d postgres -v ON_ERROR_STOP=1 <<SQL
 DO \$\$
@@ -48,6 +54,10 @@ cat > "$xml" <<EOF
 <Entry>
   <String><Key>Title</Key><Value>gpg-pass</Value></String>
   <String><Key>Password</Key><Value>${gpg_passphrase}</Value></String>
+</Entry>
+<Entry>
+  <String><Key>Title</Key><Value>admin-pw</Value></String>
+  <String><Key>Password</Key><Value>${admin_password}</Value></String>
 </Entry>
 </Group></Root></KeePassFile>
 EOF

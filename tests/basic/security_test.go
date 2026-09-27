@@ -26,22 +26,29 @@ func randomSecret(t *testing.T) string {
 
 type channel struct {
 	name string
-	args func(title string) []string
+	args func(sb *runtimeSandbox, title string) []string
 }
 
 const waitForRelease = `touch "$E2E_READY"; while [ ! -e "$E2E_RELEASE" ]; do sleep 0.05; done`
 
 var channels = []channel{
-	{"env", func(title string) []string {
+	{"env", func(sb *runtimeSandbox, title string) []string {
 		return []string{"--secrets=" + title + ":SEC_VALUE", "--", "sh", "-c", `[ -n "$SEC_VALUE" ] || exit 9; ` + waitForRelease}
 	}},
-	{"stdin", func(title string) []string {
+	{"stdin", func(sb *runtimeSandbox, title string) []string {
 		return []string{"--stdin=" + title, "--", "sh", "-c", `read -r v; [ -n "$v" ] || exit 9; ` + waitForRelease}
 	}},
-	{"files", func(title string) []string {
+	{"files", func(sb *runtimeSandbox, title string) []string {
 		return []string{"--secret-file=" + title, "--", "sh", "-c", `[ -s "$1" ] || exit 9; ` + waitForRelease, "sh", "{{" + title + "}}"}
 	}},
-	{"askpass", func(title string) []string {
+	{"templates", func(sb *runtimeSandbox, title string) []string {
+		tmplPath := filepath.Join(sb.Dir, "tmpl.txt")
+		if err := os.WriteFile(tmplPath, []byte("{{"+title+"}}"), 0600); err != nil {
+			sb.T.Fatal(err)
+		}
+		return []string{"--template=tpl:" + tmplPath, "--", "sh", "-c", `[ -s "$1" ] || exit 9; ` + waitForRelease, "sh", "{{tpl}}"}
+	}},
+	{"askpass", func(sb *runtimeSandbox, title string) []string {
 		return []string{"--askpass=" + title, "--", "sh", "-c", `v=$("$SSH_ASKPASS" Password:); [ -n "$v" ] || exit 9; ` + waitForRelease}
 	}},
 }
@@ -99,7 +106,7 @@ func TestSecArgvAndDisk_AllChannels(t *testing.T) {
 			ready := filepath.Join(sb.Dir, "ready")
 			release := filepath.Join(sb.Dir, "release")
 
-			cmd := exec.Command(binaryPath, append([]string{"--key-store", store}, ch.args("sec")...)...)
+			cmd := exec.Command(binaryPath, append([]string{"--key-store", store}, ch.args(sb, "sec")...)...)
 			cmd.Dir = sb.Dir
 			cmd.Env = append(sb.BaseEnv(), "KDBX_CLI_PASSWORD="+sb.Password, "E2E_READY="+ready, "E2E_RELEASE="+release)
 			var stderr bytes.Buffer
