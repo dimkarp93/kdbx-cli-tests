@@ -6,6 +6,7 @@ local := env_var_or_default("LOCAL", "")
 demo_dir := "_logs/demo"
 kdbx_cli_src := "../kdbx-cli"
 kdbx_cli_local_src_dir := "runner/kdbx-cli-src"
+kdbx_cli_repo := "https://github.com/dimkarp93/kdbx-cli.git"
 secrets := "E2E_PG_ADMIN_PW E2E_PG_STDIN_PW E2E_SSH_PW E2E_REG_PW E2E_SUDO_PW"
 
 kdbx_cli_version := if local != "" { `test -f ../kdbx-cli/versions.txt && tr -d '[:space:]' < ../kdbx-cli/versions.txt || echo NOTFOUND` } else { `tr -d '[:space:]' < versions.txt` }
@@ -293,3 +294,25 @@ vendor:
 vendor-check:
     GOFLAGS= go mod vendor
     test -z "$(git status --porcelain -- go.mod go.sum vendor/ | tee /dev/stderr)"
+
+[group('dev')]
+bump-version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    latest_tag="$(git ls-remote --tags --refs {{kdbx_cli_repo}} \
+        | awk -F/ '{print $NF}' \
+        | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+        | sort -V \
+        | tail -n1)"
+    if [ -z "$latest_tag" ]; then
+        echo "no version tags found in {{kdbx_cli_repo}}" >&2
+        exit 1
+    fi
+    latest_version="${latest_tag#v}"
+    current_version="$(tr -d '[:space:]' < {{version_file}})"
+    if [ "$latest_version" = "$current_version" ]; then
+        echo "{{version_file}} already at $current_version"
+        exit 0
+    fi
+    printf '%s\n' "$latest_version" > {{version_file}}
+    echo "{{version_file}}: $current_version -> $latest_version"
