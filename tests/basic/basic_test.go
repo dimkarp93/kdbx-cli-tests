@@ -37,7 +37,7 @@ func TestE2E_InjectSecret(t *testing.T) {
 	sb := newSandbox(t)
 	store := sb.MakeStore("store.kdbx", map[string]string{"GITHUB_TOKEN": "ghp_secret"})
 	sb.WriteConfig(map[string]harness.Section{
-		"default": {KeyStore: store, Secrets: map[string]string{"GITHUB_TOKEN": "GH_TOKEN"}},
+		"default": {KeyStore: store, Secrets: map[string]string{"GH_TOKEN": "GITHUB_TOKEN"}},
 	})
 
 	r := sb.Run("--", "sh", "-c", `printf %s "$GH_TOKEN"`)
@@ -56,7 +56,7 @@ func TestE2E_MergeDefaultAndToolSection(t *testing.T) {
 		"API_KEY":      "api_secret",
 	})
 	sb.WriteConfig(map[string]harness.Section{
-		"default": {KeyStore: store, Secrets: map[string]string{"GITHUB_TOKEN": "GH_TOKEN"}},
+		"default": {KeyStore: store, Secrets: map[string]string{"GH_TOKEN": "GITHUB_TOKEN"}},
 		"sh":      {Secrets: map[string]string{"API_KEY": "API_KEY"}},
 	})
 
@@ -86,7 +86,7 @@ func TestE2E_MissingSecret(t *testing.T) {
 	sb := newSandbox(t)
 	store := sb.MakeStore("store.kdbx", map[string]string{"GITHUB_TOKEN": "ghp_secret"})
 	sb.WriteConfig(map[string]harness.Section{
-		"default": {KeyStore: store, Secrets: map[string]string{"NOPE": "NOPE_ENV"}},
+		"default": {KeyStore: store, Secrets: map[string]string{"NOPE_ENV": "NOPE"}},
 	})
 
 	r := sb.Run("--", "sh", "-c", "echo should-not-run")
@@ -117,7 +117,7 @@ func TestE2E_ExitCodePropagation(t *testing.T) {
 func TestE2E_DryRun(t *testing.T) {
 	sb := newSandbox(t)
 	sb.WriteConfig(map[string]harness.Section{
-		"default": {KeyStore: "~/missing-store.kdbx", Secrets: map[string]string{"GITHUB_TOKEN": "GH_TOKEN"}},
+		"default": {KeyStore: "~/missing-store.kdbx", Secrets: map[string]string{"GH_TOKEN": "GITHUB_TOKEN"}},
 		"sh":      {Secrets: map[string]string{"API_KEY": "API_KEY"}},
 	})
 
@@ -147,8 +147,8 @@ func TestE2E_CheckAddsMissingSecrets(t *testing.T) {
 	store := sb.MakeStore("store.kdbx", map[string]string{"GITHUB_TOKEN": "ghp_secret"})
 	sb.WriteConfig(map[string]harness.Section{
 		"default": {KeyStore: store, Secrets: map[string]string{
-			"GITHUB_TOKEN": "GH_TOKEN",
-			"NPM_TOKEN":    "NPM_TOKEN",
+			"GH_TOKEN":  "GITHUB_TOKEN",
+			"NPM_TOKEN": "NPM_TOKEN",
 		}},
 	})
 

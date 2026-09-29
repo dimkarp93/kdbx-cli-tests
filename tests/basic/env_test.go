@@ -15,7 +15,7 @@ const ghInstaller = "/opt/install/github_install.sh"
 func TestEnvGH3_SectionChosenByBasename(t *testing.T) {
 	sb := newSandbox(t)
 	storeWith(sb, map[string]string{"GH_PAT": "x"}, map[string]harness.Section{
-		"github_install.sh": {Secrets: map[string]string{"GH_PAT": "GITHUB_TOKEN"}},
+		"github_install.sh": {Secrets: map[string]string{"GITHUB_TOKEN": "GH_PAT"}},
 	})
 	want := `"github_install.sh" (merged over "default")`
 

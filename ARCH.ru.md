@@ -111,7 +111,7 @@ tests/basic/                 быстрый набор (тег e2e), без се
   basic_test.go              TestMain (без ожидания сервисов), newSandbox, E2E-*
   helpers_test.go            secret, requireTool, expectOK/expectFail, storeWith, resticRepo, runtimeSandbox
   pty_test.go                ptySession (creack/pty), ответы на запросы терминала, TTY-1..3
-  env_test.go, file_test.go, ssh_test.go, stdin_test.go, negative_test.go, security_test.go
+  env_test.go, multi_env_test.go, file_test.go, ssh_test.go, stdin_test.go, negative_test.go, security_test.go
 tests/docker/                только то, что нельзя проверить без postgres/sshd (тег e2e)
   harness_test.go            TestMain (ожидание postgres+sshd), newSandbox, secret, requireTool, expectOK/expectFail
   pty_test.go                startPTY, STDIN-PG-3, ASK-SSH-3
