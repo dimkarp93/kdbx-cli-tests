@@ -25,6 +25,7 @@ type Section struct {
 }
 
 type Config struct {
+	Version  int                `json:"version"`
 	Sections map[string]Section `json:"sections"`
 }
 
