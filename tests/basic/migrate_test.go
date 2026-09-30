@@ -106,3 +106,33 @@ func TestMigrate5_EnvCollisionLeavesFileUntouched(t *testing.T) {
 		t.Errorf("config was modified:\n%s", after)
 	}
 }
+
+func TestMigrate6_FromMismatchIsError(t *testing.T) {
+	sb := newSandbox(t)
+	store := sb.MakeStore("store.kdbx", map[string]string{"GITHUB_TOKEN": "x"})
+	writeLegacyConfig(t, sb.ConfigPath(), store, map[string]string{"GITHUB_TOKEN": "GH_TOKEN"})
+	before := readFile(t, sb.ConfigPath())
+
+	r := sb.RunNoPassword("migrate", "--from", "1")
+	expectFail(t, r)
+	if after := readFile(t, sb.ConfigPath()); after != before {
+		t.Errorf("config was modified:\n%s", after)
+	}
+}
+
+func TestMigrate7_ExplicitConfigPath(t *testing.T) {
+	sb := newSandbox(t)
+	store := sb.MakeStore("store.kdbx", map[string]string{"GITHUB_TOKEN": "x"})
+	custom := sb.Dir + "/custom_config"
+	writeLegacyConfig(t, custom, store, map[string]string{"GITHUB_TOKEN": "GH_TOKEN"})
+
+	expectOK(t, sb.RunNoPassword("migrate", "--config", custom, "--from", "0", "--to", "1"))
+
+	cfg, err := harness.LoadConfig(custom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Version != 1 || cfg.Sections["default"].Secrets["GH_TOKEN"] != "GITHUB_TOKEN" {
+		t.Errorf("migrated config: %+v", cfg)
+	}
+}
