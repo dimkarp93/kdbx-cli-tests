@@ -73,3 +73,36 @@ func TestMigrate3_LegacyConfigFailsBeforeMigration(t *testing.T) {
 	expectOK(t, sb.RunNoPassword("migrate"))
 	expectOK(t, sb.Run("--", "sh", "-c", "true"))
 }
+
+func TestMigrate4_AlreadyMigratedIsNoop(t *testing.T) {
+	sb := newSandbox(t)
+	store := storeWith(sb, map[string]string{"GITHUB_TOKEN": "x"}, map[string]harness.Section{
+		"default": {Secrets: map[string]string{"GH_TOKEN": "GITHUB_TOKEN"}},
+	})
+	before := readFile(t, sb.ConfigPath())
+
+	r := sb.RunNoPassword("migrate")
+	expectOK(t, r)
+	if !strings.Contains(r.Stdout, "already at version 1") {
+		t.Errorf("expected the already-migrated message:\n%s", r.Stdout)
+	}
+	if after := readFile(t, sb.ConfigPath()); after != before {
+		t.Errorf("config changed for %s:\n%s", store, after)
+	}
+}
+
+func TestMigrate5_EnvCollisionLeavesFileUntouched(t *testing.T) {
+	sb := newSandbox(t)
+	store := sb.MakeStore("store.kdbx", map[string]string{"A": "x", "B": "y"})
+	writeLegacyConfig(t, sb.ConfigPath(), store, map[string]string{"A": "SAME_ENV", "B": "SAME_ENV"})
+	before := readFile(t, sb.ConfigPath())
+
+	r := sb.RunNoPassword("migrate")
+	expectFail(t, r)
+	if !strings.Contains(r.Stderr, "SAME_ENV") {
+		t.Errorf("expected the colliding variable in stderr:\n%s", r.Stderr)
+	}
+	if after := readFile(t, sb.ConfigPath()); after != before {
+		t.Errorf("config was modified:\n%s", after)
+	}
+}
