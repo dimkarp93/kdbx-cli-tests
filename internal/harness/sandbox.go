@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const CurrentConfigVersion = 1
+
 const TestPassword = "test-pass-123"
 
 const CommandTimeout = 30 * time.Second
