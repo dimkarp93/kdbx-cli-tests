@@ -105,13 +105,13 @@ The shared `seed` volume is mounted on `runner` and `sshd` — the only thing in
 internal/harness/            shared code, no build tag
   sandbox.go                 Sandbox, NewSandbox, SafeName, MakeStore, WriteConfig, ConfigPath, StoreTitles,
                              BaseEnv, Exec, RunEnv, Run, RunStdin, RunWithPassword, RunNoPassword, Result
-  kdbx.go                    Config/Section (the kdbx-cli config JSON schema), LoadConfig, KeepassRun, ExportTitles
+  kdbx.go                    Config (with Version)/Section (the kdbx-cli config JSON schema), LoadConfig, KeepassRun, ExportTitles
   binary.go                  CheckBinary, KDBX_CLI_BIN / KDBX_CLI_VERSION
 tests/basic/                 the quick suite (tag e2e), no services — most scenarios
   basic_test.go              TestMain (no service wait), newSandbox, E2E-*
   helpers_test.go            secret, requireTool, expectOK/expectFail, storeWith, resticRepo, runtimeSandbox
   pty_test.go                ptySession (creack/pty), terminal query answers, TTY-1..3
-  env_test.go, multi_env_test.go, file_test.go, ssh_test.go, stdin_test.go, negative_test.go, security_test.go
+  config_version_test.go, migrate_test.go, env_test.go, multi_env_test.go, file_test.go, ssh_test.go, stdin_test.go, negative_test.go, security_test.go
 tests/docker/                only what can't be checked without postgres/sshd (tag e2e)
   harness_test.go            TestMain (waits for postgres+sshd), newSandbox, secret, requireTool, expectOK/expectFail
   pty_test.go                startPTY, STDIN-PG-3, ASK-SSH-3

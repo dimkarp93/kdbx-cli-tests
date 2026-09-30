@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const CurrentConfigVersion = 1
+
 const TestPassword = "test-pass-123"
 
 const CommandTimeout = 30 * time.Second
@@ -113,7 +115,7 @@ func (s *Sandbox) ConfigPath() string {
 
 func (s *Sandbox) WriteConfig(sections map[string]Section) {
 	s.T.Helper()
-	data, _ := json.MarshalIndent(Config{Sections: sections}, "", "  ")
+	data, _ := json.MarshalIndent(Config{Version: CurrentConfigVersion, Sections: sections}, "", "  ")
 	if err := os.WriteFile(s.ConfigPath(), data, 0600); err != nil {
 		s.T.Fatal(err)
 	}
