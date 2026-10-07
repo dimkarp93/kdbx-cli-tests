@@ -145,3 +145,46 @@ func expectUntouchedTerminal(t *testing.T, r detachedResult) {
 		t.Errorf("kdbx-cli wrote to a terminal it does not own:\n%q", r.terminal)
 	}
 }
+
+func expectZenityRun(t *testing.T, foreignTerminal bool) {
+	t.Helper()
+	sb := newSandbox(t)
+	display := xDisplay(t)
+	promptStore(sb, "")
+
+	r := runDetached(sb, detachedRun{
+		foreignTerminal: foreignTerminal,
+		stdin:           "ping\n",
+		env:             []string{"DISPLAY=" + display},
+		whileRunning:    func() error { return answerZenity(display, sb.Password, "Return") },
+	}, "--", "sh", "-c", echoStdinAndSecret)
+	expectOK(t, r.Result)
+	if !strings.Contains(r.Stdout, "got:ping:marker-value") {
+		t.Errorf("child did not get both its stdin and the secret\nstdout:\n%s\nstderr:\n%s", r.Stdout, r.Stderr)
+	}
+	expectUntouchedTerminal(t, r)
+}
+
+func TestNoTTY1_ForeignTerminalAsksThroughZenity(t *testing.T) {
+	expectZenityRun(t, true)
+}
+
+func TestNoTTY2_DetachedAsksThroughZenity(t *testing.T) {
+	expectZenityRun(t, false)
+}
+
+func TestNoTTY3_CancelledZenityAbortsCommand(t *testing.T) {
+	sb := newSandbox(t)
+	display := xDisplay(t)
+	promptStore(sb, "")
+
+	r := runDetached(sb, detachedRun{
+		stdin:        "ping\n",
+		env:          []string{"DISPLAY=" + display},
+		whileRunning: func() error { return answerZenity(display, "", "Escape") },
+	}, "--", "sh", "-c", echoStdinAndSecret)
+	expectNoStart(t, r)
+	if !strings.Contains(r.Stderr, "cancelled") {
+		t.Errorf("stderr does not report the cancellation:\n%s", r.Stderr)
+	}
+}
