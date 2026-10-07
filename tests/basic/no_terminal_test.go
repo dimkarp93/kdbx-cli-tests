@@ -254,3 +254,14 @@ func TestNoTTY6_NoZenityFailsFast(t *testing.T) {
 		t.Errorf("stderr does not suggest installing zenity:\n%s", r.Stderr)
 	}
 }
+
+func TestNoTTY7_UnlockRequiresCache(t *testing.T) {
+	sb := newSandbox(t)
+	promptStore(sb, "off")
+
+	r := sb.RunNoPassword("unlock")
+	expectFail(t, r)
+	if !strings.Contains(r.Stderr, "caching is disabled") {
+		t.Errorf("stderr does not explain that caching is disabled:\n%s", r.Stderr)
+	}
+}
