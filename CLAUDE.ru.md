@@ -15,7 +15,7 @@
 ## Структура
 
 - `compose.yaml` — сервисы `postgres` и `sshd` (только то, что нужно демо и `tests/docker`) и `runner` (профиль `runner`, запуск с `-T`, без TTY). `KDBX_CLI_VERSION` приходит из justfile.
-- `runner/` — `golang:1.26-trixie` + клиентские программы + `keepassxc-minimal` + `vhs`/`ttyd`/`ffmpeg`/`chromium` для демо-записей (`VHS_NO_SANDBOX=1`); entrypoint задаёт sudo-пароль `tester` и понижает привилегии.
+- `runner/` — `golang:1.26-trixie` + клиентские программы + `keepassxc-minimal` + `xvfb`/`xdotool`/`zenity` (графический запрос пароля) + `vhs`/`ttyd`/`ffmpeg`/`chromium` для демо-записей (`VHS_NO_SANDBOX=1`); entrypoint задаёт sudo-пароль `tester` и понижает привилегии.
 - `demo/` — `setup.sh` поднимает демо-хранилище из секретов `.env`, `*.tape` — сценарии `vhs` (реальная интерактивная сессия в терминале, не выдержка из go-test-протокола); рендерятся в `_logs/demo/*.gif` через `just test-demo`.
 - `services/` — инициализация PostgreSQL (`postgres/init.sh`, роль `app_stdin`), sshd.
 - `internal/harness` — `Sandbox` (свой `HOME` на тест, `MakeStore`, `WriteConfig`, `StoreTitles`, `Run*`/`Exec` с таймаутом 30 с), `Demo`/`Cast` (протоколы и asciinema-записи по тестам, секреты замаскированы), `CheckBinary`, `WriteSummaryHeader`, схема конфига и работа с `keepassxc-cli`.

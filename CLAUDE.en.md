@@ -15,7 +15,7 @@ Black-box integration tests for `kdbx-cli`. The tested version is `versions.txt`
 ## Structure
 
 - `compose.yaml` — the `postgres` and `sshd` services (only what demos and `tests/docker` need) and `runner` (profile `runner`, run with `-T`, no TTY). `KDBX_CLI_VERSION` comes from the justfile.
-- `runner/` — `golang:1.26-trixie` + client tools + `keepassxc-minimal` + `vhs`/`ttyd`/`ffmpeg`/`chromium` for demo recordings (`VHS_NO_SANDBOX=1`); the entrypoint sets the `tester` sudo password and drops privileges.
+- `runner/` — `golang:1.26-trixie` + client tools + `keepassxc-minimal` + `xvfb`/`xdotool`/`zenity` (the graphical password prompt) + `vhs`/`ttyd`/`ffmpeg`/`chromium` for demo recordings (`VHS_NO_SANDBOX=1`); the entrypoint sets the `tester` sudo password and drops privileges.
 - `demo/` — `setup.sh` builds a demo store from the `.env` secrets, `*.tape` — `vhs` scenarios (a real interactive terminal session, not an excerpt of a go-test protocol); rendered to `_logs/demo/*.gif` by `just test-demo`.
 - `services/` — PostgreSQL init (`postgres/init.sh`, the `app_stdin` role), sshd.
 - `internal/harness` — `Sandbox` (per-test `HOME`, `MakeStore`, `WriteConfig`, `StoreTitles`, `Run*`/`Exec` with a 30 s timeout), `Demo`/`Cast` (per-test protocols and asciinema recordings, secrets masked), `CheckBinary`, `WriteSummaryHeader`, the config schema and `keepassxc-cli` helpers.

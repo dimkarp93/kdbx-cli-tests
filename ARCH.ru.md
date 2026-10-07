@@ -91,7 +91,7 @@ LOCAL=1 just test (или just test-local / test-basic-local / test-demo-local)
 ### Раннер (`runner/`)
 
 - База `golang:1.26-trixie`: Go нужен, чтобы запускать `go test` внутри контейнера.
-- Клиенты из apt: `keepassxc-minimal` (даёт `keepassxc-cli`), `postgresql-client`, `openssh-client`, `git`, `restic`, `gnupg`, `sudo`, `curl`, `jq`, `procps`, `util-linux`, `netcat-openbsd`, `openssl`, плюс `ffmpeg`/`chromium` и статический `ttyd` для demo-записей (§8).
+- Клиенты из apt: `keepassxc-minimal` (даёт `keepassxc-cli`), `postgresql-client`, `openssh-client`, `git`, `restic`, `gnupg`, `sudo`, `curl`, `jq`, `procps`, `util-linux`, `netcat-openbsd`, `openssl`, `xvfb`/`xdotool`/`zenity` для графического запроса пароля (NoTTY), плюс `ffmpeg`/`chromium` и статический `ttyd` для demo-записей (§8).
 - Установщик `github_install.sh` скачивается с коммита `INSTALL_REF` в `/opt/install/` — нужен и для установки самого `kdbx-cli` из релиза, и для теста `EnvGH3` (dry-run, без сети).
 - Пользователь `tester` с sudo по паролю и `Defaults timestamp_timeout=0`: кэш sudo не маскирует тесты.
 - Исходники тестов копируются в `/src`. `GOFLAGS=-mod=vendor`, `GOCACHE=/tmp/gocache`, `KDBX_CLI_BIN=/usr/local/bin/kdbx-cli`, `KDBX_CLI_E2E_ROOT=/work`, `E2E_IN_DOCKER=1`.
@@ -103,14 +103,19 @@ LOCAL=1 just test (или just test-local / test-basic-local / test-demo-local)
 
 ```
 internal/harness/            общий код, без build-тега
-  sandbox.go                 Sandbox, NewSandbox, SafeName, MakeStore, WriteConfig, ConfigPath, StoreTitles,
+  sandbox.go                 Sandbox, NewSandbox, SafeName, MakeStore, WriteConfig, WriteFullConfig, ConfigPath, StoreTitles,
                              BaseEnv, Exec, RunEnv, Run, RunStdin, RunWithPassword, RunNoPassword, Result
-  kdbx.go                    Config (с Version)/Section (JSON-схема конфига kdbx-cli), LoadConfig, KeepassRun, ExportTitles
+  kdbx.go                    Config (с Version и Prompt)/Section/PromptConfig (JSON-схема конфига kdbx-cli), LoadConfig, KeepassRun, ExportTitles
   binary.go                  CheckBinary, KDBX_CLI_BIN / KDBX_CLI_VERSION
 tests/basic/                 быстрый набор (тег e2e), без сервисов — большинство сценариев
   basic_test.go              TestMain (без ожидания сервисов), newSandbox, E2E-*
   helpers_test.go            secret, requireTool, expectOK/expectFail, storeWith, resticRepo, runtimeSandbox
   pty_test.go                ptySession (creack/pty), ответы на запросы терминала, TTY-1..3
+  no_terminal_test.go        runDetached (setsid, опционально чужой управляющий pty при stdio-пайпах — так Claude Code
+                             запускает MCP-сервер), NoTTY-1..7: пароль, введённый в настоящую zenity, её отмена,
+                             быстрый отказ с подсказкой (prompt off, нет DISPLAY, нет zenity), нетронутый stdin
+                             дочерней команды, unlock без кэша
+  xvfb_test.go               xDisplay (один Xvfb на прогон, запускается лениво, -displayfd), answerZenity (xdotool)
   config_version_test.go, migrate_test.go, env_test.go, multi_env_test.go, file_test.go, ssh_test.go, stdin_test.go, negative_test.go, security_test.go
 tests/docker/                только то, что нельзя проверить без postgres/sshd (тег e2e)
   harness_test.go            TestMain (ожидание postgres+sshd), newSandbox, secret, requireTool, expectOK/expectFail
@@ -143,7 +148,7 @@ demo/                        setup.sh (демо-хранилище + роль ap
 | Модуль | Где | Зачем |
 |---|---|---|
 | stdlib | везде | весь harness, тесты |
-| `github.com/creack/pty` | `tests/basic/pty_test.go`, `tests/docker/pty_test.go` | псевдотерминал для TTY-сценариев |
+| `github.com/creack/pty` | `tests/basic/pty_test.go`, `tests/basic/no_terminal_test.go`, `tests/docker/pty_test.go` | псевдотерминал для TTY-сценариев |
 | `golang.org/x/sys/unix` | `tests/basic/pty_test.go` | чтение termios (эхо после Ctrl+C) |
 
 Зависимости лежат в `vendor/` (`GOFLAGS=-mod=vendor`), поэтому `go test` в раннере не ходит в сеть. `just vendor-check` проверяет, что `vendor/` соответствует `go.mod`.

@@ -91,7 +91,7 @@ The `psql-terminal` demo creates its own `app_demo` role (a fixed password, crea
 ### The runner (`runner/`)
 
 - Base image `golang:1.26-trixie`: Go is needed to run `go test` inside the container.
-- apt clients: `keepassxc-minimal` (provides `keepassxc-cli`), `postgresql-client`, `openssh-client`, `git`, `restic`, `gnupg`, `sudo`, `curl`, `jq`, `procps`, `util-linux`, `netcat-openbsd`, `openssl`, plus `ffmpeg`/`chromium` and a static `ttyd` for demo recordings (§8).
+- apt clients: `keepassxc-minimal` (provides `keepassxc-cli`), `postgresql-client`, `openssh-client`, `git`, `restic`, `gnupg`, `sudo`, `curl`, `jq`, `procps`, `util-linux`, `netcat-openbsd`, `openssl`, `xvfb`/`xdotool`/`zenity` for the graphical password prompt (NoTTY), plus `ffmpeg`/`chromium` and a static `ttyd` for demo recordings (§8).
 - The `github_install.sh` installer is downloaded from commit `INSTALL_REF` into `/opt/install/` — needed both to install `kdbx-cli` itself from the release and for the `EnvGH3` test (dry-run, no network).
 - The `tester` user has password-protected sudo with `Defaults timestamp_timeout=0`, so the sudo cache cannot hide problems.
 - The test sources are copied into `/src`. `GOFLAGS=-mod=vendor`, `GOCACHE=/tmp/gocache`, `KDBX_CLI_BIN=/usr/local/bin/kdbx-cli`, `KDBX_CLI_E2E_ROOT=/work`, `E2E_IN_DOCKER=1`.
@@ -103,14 +103,19 @@ The shared `seed` volume is mounted on `runner` and `sshd` — the only thing in
 
 ```
 internal/harness/            shared code, no build tag
-  sandbox.go                 Sandbox, NewSandbox, SafeName, MakeStore, WriteConfig, ConfigPath, StoreTitles,
+  sandbox.go                 Sandbox, NewSandbox, SafeName, MakeStore, WriteConfig, WriteFullConfig, ConfigPath, StoreTitles,
                              BaseEnv, Exec, RunEnv, Run, RunStdin, RunWithPassword, RunNoPassword, Result
-  kdbx.go                    Config (with Version)/Section (the kdbx-cli config JSON schema), LoadConfig, KeepassRun, ExportTitles
+  kdbx.go                    Config (with Version and Prompt)/Section/PromptConfig (the kdbx-cli config JSON schema), LoadConfig, KeepassRun, ExportTitles
   binary.go                  CheckBinary, KDBX_CLI_BIN / KDBX_CLI_VERSION
 tests/basic/                 the quick suite (tag e2e), no services — most scenarios
   basic_test.go              TestMain (no service wait), newSandbox, E2E-*
   helpers_test.go            secret, requireTool, expectOK/expectFail, storeWith, resticRepo, runtimeSandbox
   pty_test.go                ptySession (creack/pty), terminal query answers, TTY-1..3
+  no_terminal_test.go        runDetached (setsid, optionally a foreign controlling pty with piped stdio — the shape
+                             of an MCP server started by Claude Code), NoTTY-1..7: the password typed into a real
+                             zenity, cancelling it, a fast failure with a hint (prompt off, no DISPLAY, no zenity),
+                             the child's stdin left untouched, unlock without cache
+  xvfb_test.go               xDisplay (one Xvfb per run, started lazily, -displayfd), answerZenity (xdotool)
   config_version_test.go, migrate_test.go, env_test.go, multi_env_test.go, file_test.go, ssh_test.go, stdin_test.go, negative_test.go, security_test.go
 tests/docker/                only what can't be checked without postgres/sshd (tag e2e)
   harness_test.go            TestMain (waits for postgres+sshd), newSandbox, secret, requireTool, expectOK/expectFail
@@ -143,7 +148,7 @@ demo/                        setup.sh (demo store + the app_demo postgres role) 
 | Module | Where | Why |
 |---|---|---|
 | stdlib | everywhere | the whole harness, the tests |
-| `github.com/creack/pty` | `tests/basic/pty_test.go`, `tests/docker/pty_test.go` | pseudo-terminal for TTY scenarios |
+| `github.com/creack/pty` | `tests/basic/pty_test.go`, `tests/basic/no_terminal_test.go`, `tests/docker/pty_test.go` | pseudo-terminal for TTY scenarios |
 | `golang.org/x/sys/unix` | `tests/basic/pty_test.go` | reading termios (echo after Ctrl+C) |
 
 The dependencies are vendored (`GOFLAGS=-mod=vendor`), so `go test` in the runner does not touch the network. `just vendor-check` makes sure `vendor/` matches `go.mod`.
