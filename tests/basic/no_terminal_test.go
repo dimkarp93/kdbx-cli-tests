@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
@@ -131,6 +132,23 @@ func promptStore(sb *harness.Sandbox, gui string) string {
 	return store
 }
 
+func pathWithOnly(t *testing.T, dir string, tools ...string) string {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range tools {
+		target, err := exec.LookPath(name)
+		if err != nil {
+			t.Fatalf("%s is missing from the runner image", name)
+		}
+		if err := os.Symlink(target, filepath.Join(dir, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
 func expectNoStart(t *testing.T, r detachedResult) {
 	t.Helper()
 	expectFail(t, r.Result)
@@ -186,5 +204,53 @@ func TestNoTTY3_CancelledZenityAbortsCommand(t *testing.T) {
 	expectNoStart(t, r)
 	if !strings.Contains(r.Stderr, "cancelled") {
 		t.Errorf("stderr does not report the cancellation:\n%s", r.Stderr)
+	}
+}
+
+func TestNoTTY4_PromptOffFailsFastAndLeavesStdinAlone(t *testing.T) {
+	sb := newSandbox(t)
+	display := xDisplay(t)
+	promptStore(sb, "off")
+
+	r := runDetached(sb, detachedRun{
+		foreignTerminal: true,
+		stdin:           sb.Password + "\nping\n",
+		env:             []string{"DISPLAY=" + display},
+	}, "--", "sh", "-c", echoStdinAndSecret)
+	expectNoStart(t, r)
+	for _, want := range []string{"no terminal", "kdbx-cli unlock"} {
+		if !strings.Contains(r.Stderr, want) {
+			t.Errorf("stderr lacks %q:\n%s", want, r.Stderr)
+		}
+	}
+	expectUntouchedTerminal(t, r)
+}
+
+func TestNoTTY5_NoDisplayFailsFast(t *testing.T) {
+	sb := newSandbox(t)
+	promptStore(sb, "")
+
+	r := runDetached(sb, detachedRun{stdin: "ping\n"}, "--", "sh", "-c", echoStdinAndSecret)
+	expectNoStart(t, r)
+	for _, want := range []string{"no terminal", "zenity"} {
+		if !strings.Contains(r.Stderr, want) {
+			t.Errorf("stderr lacks %q:\n%s", want, r.Stderr)
+		}
+	}
+}
+
+func TestNoTTY6_NoZenityFailsFast(t *testing.T) {
+	sb := newSandbox(t)
+	display := xDisplay(t)
+	promptStore(sb, "")
+	path := pathWithOnly(t, filepath.Join(sb.Dir, "bin"), "sh", "keepassxc-cli")
+
+	r := runDetached(sb, detachedRun{
+		stdin: "ping\n",
+		env:   []string{"DISPLAY=" + display, "PATH=" + path},
+	}, "--", "sh", "-c", echoStdinAndSecret)
+	expectNoStart(t, r)
+	if !strings.Contains(r.Stderr, "install zenity") {
+		t.Errorf("stderr does not suggest installing zenity:\n%s", r.Stderr)
 	}
 }
