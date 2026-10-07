@@ -115,14 +115,16 @@ func (s *Sandbox) ConfigPath() string {
 
 func (s *Sandbox) WriteConfig(sections map[string]Section) {
 	s.T.Helper()
-	data, _ := json.MarshalIndent(Config{Version: CurrentConfigVersion, Sections: sections}, "", "  ")
-	if err := os.WriteFile(s.ConfigPath(), data, 0600); err != nil {
-		s.T.Fatal(err)
-	}
+	s.WriteFullConfig(Config{Sections: sections})
 }
 
 func (s *Sandbox) WriteFullConfig(c Config) {
-	panic("not implemented")
+	s.T.Helper()
+	c.Version = CurrentConfigVersion
+	data, _ := json.MarshalIndent(c, "", "  ")
+	if err := os.WriteFile(s.ConfigPath(), data, 0600); err != nil {
+		s.T.Fatal(err)
+	}
 }
 
 func (s *Sandbox) StoreTitles(dbPath string) map[string]bool {

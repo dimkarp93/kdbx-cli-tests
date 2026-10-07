@@ -31,6 +31,7 @@ type PromptConfig struct {
 type Config struct {
 	Version  int                `json:"version"`
 	Sections map[string]Section `json:"sections"`
+	Prompt   *PromptConfig      `json:"prompt,omitempty"`
 }
 
 func LoadConfig(path string) (Config, error) {
