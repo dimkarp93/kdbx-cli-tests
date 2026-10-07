@@ -25,7 +25,9 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "cannot create KDBX_CLI_E2E_ROOT:", err)
 		os.Exit(2)
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	stopXvfb()
+	os.Exit(code)
 }
 
 func newSandbox(t *testing.T) *harness.Sandbox {
