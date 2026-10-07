@@ -6,6 +6,7 @@ RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       keepassxc-minimal postgresql-client openssh-client git restic gnupg \
       sudo curl jq procps util-linux netcat-openbsd openssl ca-certificates \
+      xvfb xdotool zenity \
       ffmpeg chromium \
  && rm -rf /var/lib/apt/lists/*
 ARG TTYD_VERSION=1.7.7
