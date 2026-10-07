@@ -121,6 +121,10 @@ func (s *Sandbox) WriteConfig(sections map[string]Section) {
 	}
 }
 
+func (s *Sandbox) WriteFullConfig(c Config) {
+	panic("not implemented")
+}
+
 func (s *Sandbox) StoreTitles(dbPath string) map[string]bool {
 	s.T.Helper()
 	out, err := KeepassRun(s.Password+"\n", "export", "-q", "-f", "xml", dbPath)

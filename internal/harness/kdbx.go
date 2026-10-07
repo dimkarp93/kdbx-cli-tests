@@ -24,6 +24,10 @@ type Section struct {
 	Askpass       string            `json:"askpass,omitempty"`
 }
 
+type PromptConfig struct {
+	GUI string `json:"gui,omitempty"`
+}
+
 type Config struct {
 	Version  int                `json:"version"`
 	Sections map[string]Section `json:"sections"`
