@@ -244,9 +244,8 @@ stage-local-src:
         fi
         rsync -a --exclude=.git --exclude=/kdbx-cli {{kdbx_cli_src}}/ {{kdbx_cli_local_src_dir}}/
         echo "building kdbx-cli locally from {{kdbx_cli_src}} (version {{kdbx_cli_version}})"
-    else
-        touch {{kdbx_cli_local_src_dir}}/.gitkeep
     fi
+    touch {{kdbx_cli_local_src_dir}}/.gitkeep
 
 # bring the services up (for debugging)
 [group('env')]
