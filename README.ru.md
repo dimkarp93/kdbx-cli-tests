@@ -76,5 +76,3 @@ just screen master-password # открыть такой .png (xdg-open/open)
 - `internal/harness/` — песочницы, схема конфига, работа с `keepassxc-cli`;
 - `demo/` — сценарии `vhs` (см. «Демо: записи VHS» выше);
 - `tests/basic/`, `tests/docker/` — тесты (build-тег `e2e`).
-
-На GitHub набор гоняется в `.github/workflows/e2e.yml` (на push, ежедневно и вручную).

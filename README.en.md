@@ -76,5 +76,3 @@ To add a new one, drop a `demo/<name>.tape` next to them (see `vhs new` for the 
 - `internal/harness/` — sandboxes, the config schema, `keepassxc-cli` helpers;
 - `demo/` — `vhs` scenarios (see "Demos: VHS recordings" above);
 - `tests/basic/`, `tests/docker/` — the tests (build tag `e2e`).
-
-On GitHub the suite runs in `.github/workflows/e2e.yml` (on push, daily and manually).
