@@ -1,1 +1,1 @@
-CLAUDE.en.md
+AGENTS.md
