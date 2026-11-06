@@ -84,13 +84,13 @@ LOCAL=1 just test (или just test-local / test-basic-local / test-demo-local)
 |---|---|---|---|---|
 | `postgres` | `postgres:17.6-alpine` | пароль роли `app_stdin` (SCRAM); роль создаёт `services/postgres/init.sh` из `E2E_PG_STDIN_PW` | `pg_isready -h 127.0.0.1` | STDIN-PG-3 (демо `psql-terminal`) |
 | `sshd` | свой, `alpine:3.22` + openssh | пароль `alice`, ключи из `/seed/ssh/authorized_keys` (`StrictModes no`) | `nc -z 127.0.0.1 22` | ASK-SSH-3 (демо `askpass-ssh`), FILE-SSH-1/2 |
-| `runner` | свой, `golang:1.26-trixie` | среда выполнения тестов | — (профиль `runner`) | все тесты |
+| `runner` | свой, `golang:1.27-trixie` | среда выполнения тестов | — (профиль `runner`) | все тесты |
 
 Демо-сценарий `psql-terminal` заводит свою собственную роль `app_demo` (фиксированный пароль, создаётся `demo/setup.sh` через админа postgres) — она не пересекается с `app_stdin`, чтобы не трогать случайный пароль реального теста.
 
 ### Раннер (`runner/`)
 
-- База `golang:1.26-trixie`: Go нужен, чтобы запускать `go test` внутри контейнера.
+- База `golang:1.27-trixie`: Go нужен, чтобы запускать `go test` внутри контейнера.
 - Клиенты из apt: `keepassxc-minimal` (даёт `keepassxc-cli`), `postgresql-client`, `openssh-client`, `git`, `restic`, `gnupg`, `sudo`, `curl`, `jq`, `procps`, `util-linux`, `netcat-openbsd`, `openssl`, плюс `ffmpeg`/`chromium` и статический `ttyd` для demo-записей (§8).
 - Установщик `github_install.sh` скачивается с коммита `INSTALL_REF` в `/opt/install/` — нужен и для установки самого `kdbx-cli` из релиза, и для теста `EnvGH3` (dry-run, без сети).
 - Пользователь `tester` с sudo по паролю и `Defaults timestamp_timeout=0`: кэш sudo не маскирует тесты.
@@ -111,7 +111,7 @@ tests/basic/                 быстрый набор (тег e2e), без се
   basic_test.go              TestMain (без ожидания сервисов), newSandbox, E2E-*
   helpers_test.go            secret, requireTool, expectOK/expectFail, storeWith, resticRepo, runtimeSandbox
   pty_test.go                ptySession (creack/pty), ответы на запросы терминала, TTY-1..3
-  config_version_test.go, migrate_test.go, env_test.go, multi_env_test.go, file_test.go, ssh_test.go, stdin_test.go, negative_test.go, security_test.go
+  config_version_test.go, migrate_test.go, env_test.go, multi_env_test.go, section_store_test.go, file_test.go, ssh_test.go, stdin_test.go, negative_test.go, security_test.go
 tests/docker/                только то, что нельзя проверить без postgres/sshd (тег e2e)
   harness_test.go            TestMain (ожидание postgres+sshd), newSandbox, secret, requireTool, expectOK/expectFail
   pty_test.go                startPTY, STDIN-PG-3, ASK-SSH-3

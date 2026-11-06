@@ -84,13 +84,13 @@ Exactly two — only what can't be proven without a real network (§9 explains w
 |---|---|---|---|---|
 | `postgres` | `postgres:17.6-alpine` | the `app_stdin` role's password (SCRAM); the role is created by `services/postgres/init.sh` from `E2E_PG_STDIN_PW` | `pg_isready -h 127.0.0.1` | STDIN-PG-3 (the `psql-terminal` demo) |
 | `sshd` | custom, `alpine:3.22` + openssh | the `alice` password, keys from `/seed/ssh/authorized_keys` (`StrictModes no`) | `nc -z 127.0.0.1 22` | ASK-SSH-3 (the `askpass-ssh` demo), FILE-SSH-1/2 |
-| `runner` | custom, `golang:1.26-trixie` | where the tests run | — (profile `runner`) | all tests |
+| `runner` | custom, `golang:1.27-trixie` | where the tests run | — (profile `runner`) | all tests |
 
 The `psql-terminal` demo creates its own `app_demo` role (a fixed password, created by `demo/setup.sh` via the postgres admin) — kept separate from `app_stdin` so it never touches the real test's randomized password.
 
 ### The runner (`runner/`)
 
-- Base image `golang:1.26-trixie`: Go is needed to run `go test` inside the container.
+- Base image `golang:1.27-trixie`: Go is needed to run `go test` inside the container.
 - apt clients: `keepassxc-minimal` (provides `keepassxc-cli`), `postgresql-client`, `openssh-client`, `git`, `restic`, `gnupg`, `sudo`, `curl`, `jq`, `procps`, `util-linux`, `netcat-openbsd`, `openssl`, plus `ffmpeg`/`chromium` and a static `ttyd` for demo recordings (§8).
 - The `github_install.sh` installer is downloaded from commit `INSTALL_REF` into `/opt/install/` — needed both to install `kdbx-cli` itself from the release and for the `EnvGH3` test (dry-run, no network).
 - The `tester` user has password-protected sudo with `Defaults timestamp_timeout=0`, so the sudo cache cannot hide problems.
@@ -111,7 +111,7 @@ tests/basic/                 the quick suite (tag e2e), no services — most sce
   basic_test.go              TestMain (no service wait), newSandbox, E2E-*
   helpers_test.go            secret, requireTool, expectOK/expectFail, storeWith, resticRepo, runtimeSandbox
   pty_test.go                ptySession (creack/pty), terminal query answers, TTY-1..3
-  config_version_test.go, migrate_test.go, env_test.go, multi_env_test.go, file_test.go, ssh_test.go, stdin_test.go, negative_test.go, security_test.go
+  config_version_test.go, migrate_test.go, env_test.go, multi_env_test.go, section_store_test.go, file_test.go, ssh_test.go, stdin_test.go, negative_test.go, security_test.go
 tests/docker/                only what can't be checked without postgres/sshd (tag e2e)
   harness_test.go            TestMain (waits for postgres+sshd), newSandbox, secret, requireTool, expectOK/expectFail
   pty_test.go                startPTY, STDIN-PG-3, ASK-SSH-3

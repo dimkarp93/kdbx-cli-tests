@@ -291,7 +291,7 @@ func TestE2E_AskpassDelivery(t *testing.T) {
 	sb := newSandbox(t)
 	store := sb.MakeStore("store.kdbx", map[string]string{"ssh-pw": "askpass_secret"})
 
-	r := sb.Run("--key-store", store, "--askpass=ssh-pw",
+	r := sb.Run("--key-store", store, "--askpass=ssh-pw", "--askpass-reads=2",
 		"--", "sh", "-c", `"$SSH_ASKPASS" "Password:"; "$GIT_ASKPASS" "Password:"; printf %s "$SSH_ASKPASS_REQUIRE"`)
 	if r.ExitCode != 0 {
 		t.Fatalf("exit %d\nstderr:\n%s", r.ExitCode, r.Stderr)

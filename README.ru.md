@@ -65,7 +65,7 @@ just screen master-password # открыть такой .png (xdg-open/open)
 
 | Набор | Сценарии |
 |---|---|
-| `tests/basic` | env/stdin/files/askpass на `sh -c`, dry-run, `check`/`config`, коды выхода, неверный пароль, выбор секции по basename; PTY (промпт мастер-пароля: ввод, неверный пароль, Ctrl+D/Ctrl+C); `restic --password-file`/`--password-command`, `gpg --passphrase-file`, `sudo -A`/`-S`, `keepassxc-cli db-create`; негативные (многострочный секрет в stdin, нет плейсхолдера); безопасность (секрета нет в argv/на диске ни для одного канала, каталог askpass `0700` и удаляется, секрет есть в environ дочернего процесса, но не kdbx-cli) |
+| `tests/basic` | env/stdin/files/askpass на `sh -c`, dry-run, `check`/`config`, коды выхода, неверный пароль, выбор секции по basename, секция со своим `key-store` не наследует `default`; PTY (промпт мастер-пароля: ввод, неверный пароль, Ctrl+D/Ctrl+C); `restic --password-file`/`--password-command`, `gpg --passphrase-file`, `sudo -A`/`-S`, `keepassxc-cli db-create`; негативные (многострочный секрет в stdin, нет плейсхолдера); безопасность (секрета нет в argv/на диске ни для одного канала, каталог askpass `0700` и удаляется, секрет есть в environ дочернего процесса, но не kdbx-cli) |
 | `tests/docker` | ssh закрывает дескриптор файла-секрета (`ssh -i`) и принимает ключ через `ssh-add`; `psql` игнорирует `--stdin`-секрет и спрашивает пароль в терминале (демо `psql-terminal`); `ssh` через `--askpass` под реальным TTY (демо `askpass-ssh`) — только postgres и sshd, больше никаких сервисов |
 
 ## Структура

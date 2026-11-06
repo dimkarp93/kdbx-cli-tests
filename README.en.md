@@ -65,7 +65,7 @@ To add a new one, drop a `demo/<name>.tape` next to them (see `vhs new` for the 
 
 | Suite | Scenarios |
 |---|---|
-| `tests/basic` | env/stdin/files/askpass on `sh -c`, dry-run, `check`/`config`, exit codes, wrong password, section selection by basename; PTY (the master password prompt: input, wrong password, Ctrl+D/Ctrl+C); `restic --password-file`/`--password-command`, `gpg --passphrase-file`, `sudo -A`/`-S`, `keepassxc-cli db-create`; negative cases (multi-line secret over stdin, missing placeholder); security (the secret is absent from argv/disk for every channel, the askpass directory is `0700` and removed, the secret is in the child's environ but not in kdbx-cli's) |
+| `tests/basic` | env/stdin/files/askpass on `sh -c`, dry-run, `check`/`config`, exit codes, wrong password, section selection by basename, a section with its own `key-store` does not inherit `default`; PTY (the master password prompt: input, wrong password, Ctrl+D/Ctrl+C); `restic --password-file`/`--password-command`, `gpg --passphrase-file`, `sudo -A`/`-S`, `keepassxc-cli db-create`; negative cases (multi-line secret over stdin, missing placeholder); security (the secret is absent from argv/disk for every channel, the askpass directory is `0700` and removed, the secret is in the child's environ but not in kdbx-cli's) |
 | `tests/docker` | ssh closes the secret file's descriptor (`ssh -i`) and accepts a key through `ssh-add`; `psql` ignores the `--stdin` secret and asks for a password at the terminal (the `psql-terminal` demo); `ssh` via `--askpass` under a real TTY (the `askpass-ssh` demo) — postgres and sshd only, no other services |
 
 ## Layout
